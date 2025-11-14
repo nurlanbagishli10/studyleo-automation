@@ -2,6 +2,8 @@ package tests;
 
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
+import config.TestConfig;
+import model.ButtonConfig;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
@@ -9,24 +11,21 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
-import org.testng.annotations.AfterSuite;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeSuite;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
+import org.testng.annotations.*;
 import utils.EmailSender;
 import utils.ExtentReportManager;
+import utils.WaitHelper;
 
 import java.io.File;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UniversityButtonsFullTest {
 
     WebDriver driver;
     JavascriptExecutor js;
-    WebDriverWait wait;
+    WaitHelper waitHelper;
 
     private static ExtentReports extent;
     private ExtentTest suiteTest;
@@ -34,26 +33,39 @@ public class UniversityButtonsFullTest {
     private ExtentTest universityTest;
     private ExtentTest buttonTest;
 
-    private static final Object[][] UNIVERSITY_BUTTONS = {
-            {"Admission Requirements", "/html/body/section[1]/div/div[2]/div[3]/a", "Qəbul tələbləri səhifəsi", false, new String[]{}},
-            {"Apply Now", "/html/body/section[1]/div/div[2]/div[3]/button", "Müraciət forması (Modal)", false, new String[]{}},
-            {"Rankings - View More", "/html/body/section[2]/a", "Reytinqlər səhifəsi", false, new String[]{}},
-            {"Programs - View More", "/html/body/div[4]/section/div/div[3]/a", "Proqramlar səhifəsi", false, new String[]{}},
-            {"Admission Req - View More", "/html/body/section[4]/a", "Qəbul tələbləri ətraflı", false, new String[]{}},
-            {"Galleries - View More", "/html/body/section[5]/div[2]/section/div[2]/a", "Qalereya səhifəsi", false, new String[]{}},
-            {"Dormitories - View More", "/html/body/section[6]/a", "Yataqxanalar səhifəsi", false, new String[]{}},
-            {"International Students", "/html/body/section[7]/div[2]/div/a[1]", "Beynəlxalq tələbələr", false, new String[]{}},
+    // ✅ Tip-safe button konfiqurasiyası
+    private static final List<ButtonConfig> UNIVERSITY_BUTTONS = new ArrayList<>();
 
-            {"Campuses - View More", "/html/body/div[5]/section/a", "Kampuslar (2+ kampus)", true, new String[]{
-                    "/html/body/div[5]/section/div[1]/div[1]/div[2]/a",
-                    "/html/body/div[5]/section/div[1]/div[2]/div[2]/a"
-            }},
-
-            {"Transportation Options", "/html/body/section[8]/div[1]/a", "Nəqliyyat variantları", false, new String[]{}},
-            {"Visa Support", "/html/body/section[9]/div[2]/a", "Viza dəstəyi", false, new String[]{}},
-            {"FAQs - View More", "/html/body/section[10]/a", "Tez-tez verilən suallar", false, new String[]{}},
-            {"Reviews - View More", "/html/body/section[11]/a", "Rəylər səhifəsi", false, new String[]{}}
-    };
+    static {
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Admission Requirements",
+                "/html/body/section[1]/div/div[2]/div[3]/a", "Qəbul tələbləri səhifəsi", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Apply Now",
+                "/html/body/section[1]/div/div[2]/div[3]/button", "Müraciət forması (Modal)", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Rankings - View More",
+                "/html/body/section[2]/a", "Reytinqlər səhifəsi", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Programs - View More",
+                "/html/body/div[4]/section/div/div[3]/a", "Proqramlar səhifəsi", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Admission Req - View More",
+                "/html/body/section[4]/a", "Qəbul tələbləri ətraflı", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Galleries - View More",
+                "/html/body/section[5]/div[2]/section/div[2]/a", "Qalereya səhifəsi", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Dormitories - View More",
+                "/html/body/section[6]/a", "Yataqxanalar səhifəsi", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("International Students",
+                "/html/body/section[7]/div[2]/div/a[1]", "Beynəlxalq tələbələr", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Campuses - View More",
+                "/html/body/div[5]/section/a", "Kampuslar (2+ kampus)", true,
+                "/html/body/div[5]/section/div[1]/div[1]/div[2]/a",
+                "/html/body/div[5]/section/div[1]/div[2]/div[2]/a"));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Transportation Options",
+                "/html/body/section[8]/div[1]/a", "Nəqliyyat variantları", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Visa Support",
+                "/html/body/section[9]/div[2]/a", "Viza dəstəyi", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("FAQs - View More",
+                "/html/body/section[10]/a", "Tez-tez verilən suallar", false));
+        UNIVERSITY_BUTTONS.add(new ButtonConfig("Reviews - View More",
+                "/html/body/section[11]/a", "Rəylər səhifəsi", false));
+    }
 
     @BeforeSuite
     public void setupSuite() {
@@ -65,7 +77,7 @@ public class UniversityButtonsFullTest {
     @BeforeTest
     public void setup() {
         ChromeOptions options = new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("headless", "false"));
+        boolean headless = TestConfig.isHeadless();
 
         options.addArguments("--disable-extensions");
         options.addArguments("--disable-notifications");
@@ -88,11 +100,11 @@ public class UniversityButtonsFullTest {
 
         driver = new ChromeDriver(options);
         js = (JavascriptExecutor) driver;
-        wait = new WebDriverWait(driver, Duration.ofSeconds(20)); // ✅ 12→20s
+        waitHelper = new WaitHelper(driver);
 
-        // ✅ Page load və implicit wait artır
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(90));
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(8));
+        // ✅ Config-dən timeout-lar
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(TestConfig.getPageLoadTimeout()));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(TestConfig.getImplicitTimeout()));
 
         if (!headless) {
             driver.manage().window().maximize();
@@ -101,28 +113,21 @@ public class UniversityButtonsFullTest {
         suiteTest.pass("<span style='color: #ffffff !important;'>✅ Browser uğurla başladıldı</span>");
     }
 
-    @Test(priority = 1)
-    public void testPage1Universities() {
-        pageTest = suiteTest.createNode("📄 Səhifə 1 - Universitetlər", "Səhifə 1-dəki universitetlərin button testləri");
-        testUniversitiesPage(1, "https://studyleo.com/en/universities", 12);
+    @DataProvider(name = "universityPages")
+    public Object[][] universityPagesData() {
+        return new Object[][] {
+                {1, TestConfig.getBaseUrl(), 12},
+                {2, TestConfig.getBaseUrl() + "?page=2", 12},
+                {3, TestConfig.getBaseUrl() + "?page=3", 12},
+                {4, TestConfig.getBaseUrl() + "?page=4", 5}
+        };
     }
 
-    @Test(priority = 2)
-    public void testPage2Universities() {
-        pageTest = suiteTest.createNode("📄 Səhifə 2 - Universitetlər", "Səhifə 2-dəki universitetlərin button testləri");
-        testUniversitiesPage(2, "https://studyleo.com/en/universities?page=2", 12);
-    }
-
-    @Test(priority = 3)
-    public void testPage3Universities() {
-        pageTest = suiteTest.createNode("📄 Səhifə 3 - Universitetlər", "Səhifə 3-dəki universitetlərin button testləri");
-        testUniversitiesPage(3, "https://studyleo.com/en/universities?page=3", 12);
-    }
-
-    @Test(priority = 4)
-    public void testPage4Universities() {
-        pageTest = suiteTest.createNode("📄 Səhifə 4 - Universitetlər", "Səhifə 4-dəki universitetlərin button testləri");
-        testUniversitiesPage(4, "https://studyleo.com/en/universities?page=4", 5);
+    @Test(dataProvider = "universityPages")
+    public void testUniversityPage(int pageNumber, String url, int universityCount) {
+        pageTest = suiteTest.createNode("📄 Səhifə " + pageNumber + " - Universitetlər",
+                "Səhifə " + pageNumber + "-dəki universitetlərin button testləri");
+        testUniversitiesPage(pageNumber, url, universityCount);
     }
 
     private void testUniversitiesPage(int pageNumber, String url, int universityCount) {
@@ -134,7 +139,8 @@ public class UniversityButtonsFullTest {
         pageTest.info("<span style='color: #ffffff !important;'>📊 Test ediləcək universitet sayı: " + universityCount + "</span>");
 
         driver.get(url);
-        waitFor(1900);
+        waitHelper.waitForPageLoad();
+        waitHelper.waitMedium();
 
         int totalUniversitiesSuccess = 0;
         int totalUniversitiesError = 0;
@@ -167,19 +173,18 @@ public class UniversityButtonsFullTest {
                 System.out.println("   📍 Universitet: " + universityName);
                 universityTest.info("<span style='color: #ffffff !important;'>📍 Test edilir: " + universityName + "</span>");
 
-                WebElement uniElement = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
+                WebElement uniElement = waitHelper.waitForElementClickable(By.xpath(xpath));
                 js.executeScript("arguments[0].click();", uniElement);
-                waitFor(3000); // ✅ 2500→3000ms
+                waitHelper.waitForPageLoad();
+                waitHelper.waitLong();
 
                 String universityUrl = driver.getCurrentUrl();
                 System.out.println("   🔗 URL: " + universityUrl);
                 universityTest.info("<span style='color: #ffffff !important;'>🔗 URL: <a href='" + universityUrl + "' target='_blank' style='color: #3498db !important;'>" + universityUrl + "</a></span>");
 
-                // ✅ Səhifənin TAM yüklənməsini gözlə
-                wait.until(webDriver ->
-                        ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete")
-                );
-                waitFor(1500); // ✅ 1000→1500ms
+                waitHelper.waitForPageLoad();
+                waitHelper.waitForAjax();
+                waitHelper.waitMedium();
 
                 boolean universitySuccess = testUniversityButtons(universityUrl);
 
@@ -191,14 +196,19 @@ public class UniversityButtonsFullTest {
 
                 System.out.println("   🔙 Səhifə " + pageNumber + " - Universitet listinə qayıdılır...");
                 driver.get(url);
-                waitFor(1900);
+                waitHelper.waitForPageLoad();
+                waitHelper.waitMedium();
 
-                // ✅ 4-lü Grid Məntiqli Scroll
-                int scrollY = (i > 8) ? 200 : (i > 4) ? 100 : 0;
-                String scrollInfo = (i > 8) ? "Sətir 3 (200px)" : (i > 4) ? "Sətir 2 (100px)" : "Sətir 1 (0px)";
-                js.executeScript("window.scrollTo(0, " + scrollY + ");");
-                System.out.println("   📜 " + scrollInfo);
-                waitFor(500);
+                // ✅ Smart scroll - elementin özünə scroll et
+                try {
+                    WebElement currentUniElement = driver.findElement(By.xpath(xpath));
+                    waitHelper.scrollToElement(currentUniElement);
+                } catch (Exception e) {
+                    // Fallback: eski üsul
+                    int scrollY = (i > 8) ? 200 : (i > 4) ? 100 : 0;
+                    js.executeScript("window.scrollTo(0, " + scrollY + ");");
+                }
+                waitHelper.waitShort();
 
             } catch (Exception e) {
                 totalUniversitiesError++;
@@ -210,10 +220,8 @@ public class UniversityButtonsFullTest {
 
                 try {
                     driver.get(url);
-                    waitFor(1900);
-                    int scrollY = (i > 8) ? 200 : (i > 4) ? 100 : 0;
-                    js.executeScript("window.scrollTo(0, " + scrollY + ");");
-                    waitFor(500);
+                    waitHelper.waitForPageLoad();
+                    waitHelper.waitMedium();
                 } catch (Exception e2) {
                     System.err.println("   ❌ Geri dönmə xətası: " + e2.getMessage());
                 }
@@ -224,66 +232,32 @@ public class UniversityButtonsFullTest {
     }
 
     private boolean testUniversityButtons(String universityUrl) {
-        // ✅ Səhifənin TAM yüklənməsini gözlə
-        try {
-            System.out.println("\n   ⏳ Səhifə yüklənməsi gözlənilir...");
-
-            // 1. Document ready
-            wait.until(webDriver ->
-                    ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete")
-            );
-
-            // 2. jQuery yüklənirsə, onu da gözlə
-            try {
-                wait.until(webDriver ->
-                        ((JavascriptExecutor) webDriver).executeScript("return typeof jQuery != 'undefined' && jQuery.active == 0")
-                );
-            } catch (Exception e) {
-                // jQuery yoxdursa, ignore
-            }
-
-            // 3. Body elementinin mövcudluğunu yoxla
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
-
-            // 4. Kiçik scroll (lazy load trigger)
-            js.executeScript("window.scrollTo(0, 100);");
-            waitFor(1000);
-            js.executeScript("window.scrollTo(0, 0);");
-            waitFor(500);
-
-            System.out.println("   ✅ Səhifə hazırdır");
-
-        } catch (Exception e) {
-            System.out.println("   ⚠️  Səhifə yüklənməsi yavaşdır: " + e.getMessage());
-        }
+        waitHelper.waitForPageLoad();
 
         int successCount = 0;
         int errorCount = 0;
         int skippedCount = 0;
         int totalButtonsTested = 0;
 
-        for (int i = 0; i < UNIVERSITY_BUTTONS.length; i++) {
-            String buttonName = (String) UNIVERSITY_BUTTONS[i][0];
-            String primaryXPath = (String) UNIVERSITY_BUTTONS[i][1];
-            String description = (String) UNIVERSITY_BUTTONS[i][2];
-            boolean isDynamic = (boolean) UNIVERSITY_BUTTONS[i][3];
-            String[] alternativeXPaths = (String[]) UNIVERSITY_BUTTONS[i][4];
+        for (int i = 0; i < UNIVERSITY_BUTTONS.size(); i++) {
+            ButtonConfig buttonConfig = UNIVERSITY_BUTTONS.get(i);
 
-            if (isDynamic && buttonName.contains("Campuses")) {
+            if (buttonConfig.isDynamic() && buttonConfig.getName().contains("Campuses")) {
                 System.out.println("\n      🔍 Campuses Dinamik Yoxlama");
 
-                WebElement mainCampusButton = findButton(primaryXPath);
+                WebElement mainCampusButton = findButton(buttonConfig.getXpath());
 
                 if (mainCampusButton != null) {
-                    scrollToElement(mainCampusButton);
+                    waitHelper.scrollToElement(mainCampusButton);
                 }
 
                 if (mainCampusButton != null && mainCampusButton.isDisplayed()) {
                     System.out.println("         ✅ Əsas Campuses View More tapıldı");
-                    buttonTest = universityTest.createNode("🔘 " + buttonName + " (2+ kampus)", "Əsas campuses view more");
+                    buttonTest = universityTest.createNode("🔘 " + buttonConfig.getName() + " (2+ kampus)",
+                            "Əsas campuses view more");
 
                     totalButtonsTested++;
-                    if (testSingleButton(mainCampusButton, buttonName, primaryXPath, universityUrl)) {
+                    if (testSingleButton(mainCampusButton, buttonConfig.getName(), buttonConfig.getXpath(), universityUrl)) {
                         successCount++;
                     } else {
                         errorCount++;
@@ -292,11 +266,12 @@ public class UniversityButtonsFullTest {
                 } else {
                     System.out.println("         ⚠️  Əsas button yoxdur, ayrı kampuslar yoxlanır...");
 
-                    for (int c = 0; c < alternativeXPaths.length; c++) {
-                        WebElement campusButton = findButton(alternativeXPaths[c]);
+                    List<String> alternatives = buttonConfig.getAlternativeXPaths();
+                    for (int c = 0; c < alternatives.size(); c++) {
+                        WebElement campusButton = findButton(alternatives.get(c));
 
                         if (campusButton != null) {
-                            scrollToElement(campusButton);
+                            waitHelper.scrollToElement(campusButton);
                         }
 
                         if (campusButton != null && campusButton.isDisplayed()) {
@@ -305,7 +280,7 @@ public class UniversityButtonsFullTest {
                                     "Campus " + (c + 1) + " səhifəsi");
 
                             totalButtonsTested++;
-                            if (testSingleButton(campusButton, "Campus " + (c + 1) + " View More", alternativeXPaths[c], universityUrl)) {
+                            if (testSingleButton(campusButton, "Campus " + (c + 1) + " View More", alternatives.get(c), universityUrl)) {
                                 successCount++;
                             } else {
                                 errorCount++;
@@ -325,14 +300,14 @@ public class UniversityButtonsFullTest {
                 }
 
             } else {
-                buttonTest = universityTest.createNode("🔘 " + buttonName, description);
+                buttonTest = universityTest.createNode("🔘 " + buttonConfig.getName(), buttonConfig.getDescription());
                 totalButtonsTested++;
 
                 try {
-                    System.out.println("\n      🔘 Button " + (i + 1) + "/" + UNIVERSITY_BUTTONS.length + ": " + buttonName);
-                    buttonTest.info("<span style='color: #ffffff !important;'>🔍 Test: " + buttonName + "</span>");
+                    System.out.println("\n      🔘 Button " + (i + 1) + "/" + UNIVERSITY_BUTTONS.size() + ": " + buttonConfig.getName());
+                    buttonTest.info("<span style='color: #ffffff !important;'>🔍 Test: " + buttonConfig.getName() + "</span>");
 
-                    WebElement button = findButton(primaryXPath);
+                    WebElement button = findButton(buttonConfig.getXpath());
 
                     if (button == null) {
                         System.out.println("         ⚠️  Skip (tapılmadı)");
@@ -341,8 +316,7 @@ public class UniversityButtonsFullTest {
                         continue;
                     }
 
-                    scrollToElement(button);
-                    waitFor(500);
+                    waitHelper.scrollToElement(button);
 
                     if (!button.isDisplayed()) {
                         System.out.println("         ⚠️  Skip (görünmür)");
@@ -353,14 +327,14 @@ public class UniversityButtonsFullTest {
 
                     highlightElement(button);
 
-                    if (buttonName.equals("Apply Now")) {
+                    if (buttonConfig.getName().equals("Apply Now")) {
                         testApplyNowButton(button);
                         successCount++;
                         System.out.println("         ✅ Uğurlu");
                         continue;
                     }
 
-                    if (testSingleButton(button, buttonName, primaryXPath, universityUrl)) {
+                    if (testSingleButton(button, buttonConfig.getName(), buttonConfig.getXpath(), universityUrl)) {
                         successCount++;
                     } else {
                         errorCount++;
@@ -369,7 +343,7 @@ public class UniversityButtonsFullTest {
                 } catch (Exception e) {
                     errorCount++;
                     System.out.println("         ❌ Xəta: " + e.getMessage());
-                    ExtentReportManager.logFailWithDetails(buttonTest, buttonName + " xətası", e.getMessage());
+                    ExtentReportManager.logFailWithDetails(buttonTest, buttonConfig.getName() + " xətası", e.getMessage());
                 }
             }
         }
@@ -401,51 +375,10 @@ public class UniversityButtonsFullTest {
     }
 
     /**
-     * ✅ Button tapma - 3 retry + scroll + aggressive wait
+     * ✅ Config-dən retry count istifadə edir
      */
     private WebElement findButton(String xpath) {
-        int maxRetries = 3;
-
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                // 1. Səhifənin tam yüklənməsini gözlə
-                wait.until(webDriver ->
-                        ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete")
-                );
-
-                // 2. Elementi uzun timeout ilə axtarırıq (25 saniyə)
-                WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(25));
-                WebElement element = longWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(xpath)));
-
-                // 3. Elementə scroll et
-                js.executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element);
-                waitFor(1500); // Scroll + lazy load
-
-                // 4. Görünənliyini yoxla
-                wait.until(ExpectedConditions.visibilityOf(element));
-
-                if (attempt > 1) {
-                    System.out.println("         ✅ Button tapıldı (cəhd " + attempt + "/" + maxRetries + ")");
-                }
-
-                return element;
-
-            } catch (Exception e) {
-                if (attempt < maxRetries) {
-                    System.out.println("         ⚠️  Cəhd " + attempt + "/" + maxRetries + " uğursuz: " + e.getMessage());
-                    System.out.println("         🔄 Yenidən cəhd edilir (2 saniyə sonra)...");
-                    waitFor(2000);
-
-                    // Lazy load trigger
-                    js.executeScript("window.scrollBy(0, 100);");
-                    waitFor(500);
-                } else {
-                    System.out.println("         ❌ Button tapılmadı (" + maxRetries + " cəhd sonra)");
-                }
-            }
-        }
-
-        return null;
+        return waitHelper.findElementWithRetry(By.xpath(xpath), TestConfig.getRetryCount());
     }
 
     private boolean testSingleButton(WebElement button, String buttonName, String xpath, String universityUrl) {
@@ -453,7 +386,11 @@ public class UniversityButtonsFullTest {
             String beforeUrl = driver.getCurrentUrl();
             js.executeScript("arguments[0].click();", button);
             buttonTest.pass("<span style='color: #ffffff !important;'>✅ Tıklandı</span>");
-            waitFor(1900);
+
+            waitHelper.waitForUrlChange(beforeUrl);
+            waitHelper.waitForPageLoad();
+            waitHelper.waitForAjax();
+            waitHelper.waitMedium();
 
             String afterUrl = driver.getCurrentUrl();
 
@@ -464,15 +401,9 @@ public class UniversityButtonsFullTest {
 
                 System.out.println("         🔙 Geri: " + universityUrl);
                 driver.get(universityUrl);
-                waitFor(1900);
-
-                try {
-                    wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
-                } catch (Exception e) {
-                    System.out.println("         ⚠️  Səhifə yavaş yüklənir...");
-                }
-
-                waitFor(800);
+                waitHelper.waitForPageLoad();
+                waitHelper.waitForAjax();
+                waitHelper.waitMedium();
 
                 if (pageLoaded) {
                     System.out.println("         ✅ Uğurlu");
@@ -493,7 +424,8 @@ public class UniversityButtonsFullTest {
             buttonTest.fail("<span style='color: #ffffff !important;'>❌ Xəta</span>");
             try {
                 driver.get(universityUrl);
-                waitFor(1900);
+                waitHelper.waitForPageLoad();
+                waitHelper.waitMedium();
             } catch (Exception e2) {}
             return false;
         }
@@ -503,12 +435,10 @@ public class UniversityButtonsFullTest {
         try {
             js.executeScript("arguments[0].click();", applyButton);
             buttonTest.pass("<span style='color: #ffffff !important;'>✅ Modal açıldı</span>");
-            waitFor(1900);
+            waitHelper.waitMedium();
 
             try {
-                WebElement closeButton = wait.until(ExpectedConditions.elementToBeClickable(
-                        By.xpath("/html/body/div[7]/button")
-                ));
+                WebElement closeButton = waitHelper.waitForElementClickable(By.xpath("/html/body/div[7]/button"));
                 highlightElement(closeButton);
                 js.executeScript("arguments[0].click();", closeButton);
                 buttonTest.pass("<span style='color: #ffffff !important;'>✅ Modal bağlandı</span>");
@@ -517,34 +447,10 @@ public class UniversityButtonsFullTest {
                 buttonTest.warning("<span style='color: #ffffff !important;'>⚠️ ESC ilə bağlandı</span>");
             }
 
-            waitFor(1000);
+            waitHelper.waitShort();
 
         } catch (Exception e) {
             buttonTest.fail("<span style='color: #ffffff !important;'>❌ Modal xətası</span>");
-        }
-    }
-
-    /**
-     * ✅ Elementə scroll et + lazy load trigger
-     */
-    private void scrollToElement(WebElement element) {
-        try {
-            js.executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element);
-            waitFor(1500); // ✅ 800→1500ms
-
-            // Görünənliyini yoxla
-            try {
-                wait.until(ExpectedConditions.visibilityOf(element));
-            } catch (Exception e) {
-                System.out.println("         ⚠️  Element hələ görünmür, yenidən scroll...");
-                js.executeScript("window.scrollBy(0, -50);");
-                waitFor(300);
-                js.executeScript("window.scrollBy(0, 50);");
-                waitFor(500);
-            }
-
-        } catch (Exception e) {
-            System.out.println("         ⚠️  Scroll xətası: " + e.getMessage());
         }
     }
 
@@ -555,7 +461,7 @@ public class UniversityButtonsFullTest {
                     "arguments[0].setAttribute('style', 'border: 3px solid yellow; box-shadow: 0 0 10px yellow;');",
                     element
             );
-            waitFor(500);
+            waitHelper.waitShort();
             js.executeScript(
                     "arguments[0].setAttribute('style', '" + (originalStyle != null ? originalStyle : "") + "');",
                     element
@@ -668,14 +574,6 @@ public class UniversityButtonsFullTest {
         return sb.toString();
     }
 
-    private void waitFor(int milliseconds) {
-        try {
-            Thread.sleep(milliseconds);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @AfterTest
     public void tearDown() {
         if (driver != null) {
@@ -704,6 +602,7 @@ public class UniversityButtonsFullTest {
                 return;
             }
 
+            // ✅ Timestamp-ə görə sort et
             File[] reportFiles = reportsDir.listFiles((dir, name) ->
                     name.startsWith("UniversityTest_Report_") && name.endsWith(".html")
             );
@@ -714,10 +613,15 @@ public class UniversityButtonsFullTest {
                 return;
             }
 
+            // ✅ Fayl adından timestamp çıxart və müqayisə et
             File latestReport = reportFiles[0];
+            long latestTimestamp = extractTimestampFromFilename(latestReport.getName());
+
             for (File file : reportFiles) {
-                if (file.lastModified() > latestReport.lastModified()) {
+                long fileTimestamp = extractTimestampFromFilename(file.getName());
+                if (fileTimestamp > latestTimestamp) {
                     latestReport = file;
+                    latestTimestamp = fileTimestamp;
                 }
             }
 
@@ -734,6 +638,23 @@ public class UniversityButtonsFullTest {
         } catch (Exception e) {
             System.err.println("❌ Email göndərmə xətası: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * ✅ Fayl adından timestamp çıxar
+     * Format: UniversityTest_Report_20251114_090846.html
+     */
+    private long extractTimestampFromFilename(String filename) {
+        try {
+            // UniversityTest_Report_20251114_090846.html -> 20251114090846
+            String timestampStr = filename
+                    .replace("UniversityTest_Report_", "")
+                    .replace(".html", "")
+                    .replace("_", "");
+            return Long.parseLong(timestampStr);
+        } catch (Exception e) {
+            return 0L;
         }
     }
 }
