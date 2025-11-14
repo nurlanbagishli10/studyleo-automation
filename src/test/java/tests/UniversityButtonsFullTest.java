@@ -65,7 +65,7 @@ public class UniversityButtonsFullTest {
     @BeforeTest
     public void setup() {
         ChromeOptions options = new ChromeOptions();
-        boolean headless = Boolean.parseBoolean(System.getProperty("headless", "true"));
+        boolean headless = Boolean.parseBoolean(System.getProperty("headless", "false"));
 
         options.addArguments("--disable-extensions");
         options.addArguments("--disable-notifications");
@@ -88,7 +88,11 @@ public class UniversityButtonsFullTest {
 
         driver = new ChromeDriver(options);
         js = (JavascriptExecutor) driver;
-        wait = new WebDriverWait(driver, Duration.ofSeconds(12));
+        wait = new WebDriverWait(driver, Duration.ofSeconds(20)); // ✅ 12→20s
+
+        // ✅ Page load və implicit wait artır
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(90));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(8));
 
         if (!headless) {
             driver.manage().window().maximize();
@@ -165,13 +169,17 @@ public class UniversityButtonsFullTest {
 
                 WebElement uniElement = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
                 js.executeScript("arguments[0].click();", uniElement);
-                waitFor(2500);
+                waitFor(3000); // ✅ 2500→3000ms
 
                 String universityUrl = driver.getCurrentUrl();
                 System.out.println("   🔗 URL: " + universityUrl);
                 universityTest.info("<span style='color: #ffffff !important;'>🔗 URL: <a href='" + universityUrl + "' target='_blank' style='color: #3498db !important;'>" + universityUrl + "</a></span>");
 
-                waitFor(1000);
+                // ✅ Səhifənin TAM yüklənməsini gözlə
+                wait.until(webDriver ->
+                        ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete")
+                );
+                waitFor(1500); // ✅ 1000→1500ms
 
                 boolean universitySuccess = testUniversityButtons(universityUrl);
 
@@ -216,6 +224,39 @@ public class UniversityButtonsFullTest {
     }
 
     private boolean testUniversityButtons(String universityUrl) {
+        // ✅ Səhifənin TAM yüklənməsini gözlə
+        try {
+            System.out.println("\n   ⏳ Səhifə yüklənməsi gözlənilir...");
+
+            // 1. Document ready
+            wait.until(webDriver ->
+                    ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete")
+            );
+
+            // 2. jQuery yüklənirsə, onu da gözlə
+            try {
+                wait.until(webDriver ->
+                        ((JavascriptExecutor) webDriver).executeScript("return typeof jQuery != 'undefined' && jQuery.active == 0")
+                );
+            } catch (Exception e) {
+                // jQuery yoxdursa, ignore
+            }
+
+            // 3. Body elementinin mövcudluğunu yoxla
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
+
+            // 4. Kiçik scroll (lazy load trigger)
+            js.executeScript("window.scrollTo(0, 100);");
+            waitFor(1000);
+            js.executeScript("window.scrollTo(0, 0);");
+            waitFor(500);
+
+            System.out.println("   ✅ Səhifə hazırdır");
+
+        } catch (Exception e) {
+            System.out.println("   ⚠️  Səhifə yüklənməsi yavaşdır: " + e.getMessage());
+        }
+
         int successCount = 0;
         int errorCount = 0;
         int skippedCount = 0;
@@ -234,7 +275,7 @@ public class UniversityButtonsFullTest {
                 WebElement mainCampusButton = findButton(primaryXPath);
 
                 if (mainCampusButton != null) {
-                    scrollToElement(mainCampusButton); // ✅ Avtomatik scroll
+                    scrollToElement(mainCampusButton);
                 }
 
                 if (mainCampusButton != null && mainCampusButton.isDisplayed()) {
@@ -255,7 +296,7 @@ public class UniversityButtonsFullTest {
                         WebElement campusButton = findButton(alternativeXPaths[c]);
 
                         if (campusButton != null) {
-                            scrollToElement(campusButton); // ✅ Avtomatik scroll
+                            scrollToElement(campusButton);
                         }
 
                         if (campusButton != null && campusButton.isDisplayed()) {
@@ -300,7 +341,6 @@ public class UniversityButtonsFullTest {
                         continue;
                     }
 
-                    // ✅ Buttona avtomatik scroll et
                     scrollToElement(button);
                     waitFor(500);
 
@@ -360,12 +400,52 @@ public class UniversityButtonsFullTest {
         return errorCount == 0;
     }
 
+    /**
+     * ✅ Button tapma - 3 retry + scroll + aggressive wait
+     */
     private WebElement findButton(String xpath) {
-        try {
-            return wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(xpath)));
-        } catch (Exception e) {
-            return null;
+        int maxRetries = 3;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // 1. Səhifənin tam yüklənməsini gözlə
+                wait.until(webDriver ->
+                        ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete")
+                );
+
+                // 2. Elementi uzun timeout ilə axtarırıq (25 saniyə)
+                WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(25));
+                WebElement element = longWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(xpath)));
+
+                // 3. Elementə scroll et
+                js.executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element);
+                waitFor(1500); // Scroll + lazy load
+
+                // 4. Görünənliyini yoxla
+                wait.until(ExpectedConditions.visibilityOf(element));
+
+                if (attempt > 1) {
+                    System.out.println("         ✅ Button tapıldı (cəhd " + attempt + "/" + maxRetries + ")");
+                }
+
+                return element;
+
+            } catch (Exception e) {
+                if (attempt < maxRetries) {
+                    System.out.println("         ⚠️  Cəhd " + attempt + "/" + maxRetries + " uğursuz: " + e.getMessage());
+                    System.out.println("         🔄 Yenidən cəhd edilir (2 saniyə sonra)...");
+                    waitFor(2000);
+
+                    // Lazy load trigger
+                    js.executeScript("window.scrollBy(0, 100);");
+                    waitFor(500);
+                } else {
+                    System.out.println("         ❌ Button tapılmadı (" + maxRetries + " cəhd sonra)");
+                }
+            }
         }
+
+        return null;
     }
 
     private boolean testSingleButton(WebElement button, String buttonName, String xpath, String universityUrl) {
@@ -386,7 +466,6 @@ public class UniversityButtonsFullTest {
                 driver.get(universityUrl);
                 waitFor(1900);
 
-                // ✅ Səhifə yüklənməsini gözlə
                 try {
                     wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
                 } catch (Exception e) {
@@ -446,12 +525,24 @@ public class UniversityButtonsFullTest {
     }
 
     /**
-     * ✅ Buttona avtomatik scroll edir
+     * ✅ Elementə scroll et + lazy load trigger
      */
     private void scrollToElement(WebElement element) {
         try {
             js.executeScript("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element);
-            waitFor(800);
+            waitFor(1500); // ✅ 800→1500ms
+
+            // Görünənliyini yoxla
+            try {
+                wait.until(ExpectedConditions.visibilityOf(element));
+            } catch (Exception e) {
+                System.out.println("         ⚠️  Element hələ görünmür, yenidən scroll...");
+                js.executeScript("window.scrollBy(0, -50);");
+                waitFor(300);
+                js.executeScript("window.scrollBy(0, 50);");
+                waitFor(500);
+            }
+
         } catch (Exception e) {
             System.out.println("         ⚠️  Scroll xətası: " + e.getMessage());
         }
